@@ -150,31 +150,31 @@ const OptimalCheckCalculator: React.FC = () => {
     const dp: number[] = new Array(65).fill(Infinity);
     dp[0] = 0;
     const combination: { [key: number]: CheckToken[] } = { 0: [] };
-
+  
     // Group checks by grid size
-    const checksByGridSize: { [key: number]: CheckToken[] } = {};
+    const checksByGridSize: { [key: string]: CheckToken[] } = {}; // Change this to string index
     checks.forEach(check => {
-      const key = check.contractAddress === EDITIONS_CONTRACT_ADDRESS ? 'Editions' : check.gridSize;
+      const key = check.contractAddress === EDITIONS_CONTRACT_ADDRESS ? 'Editions' : check.gridSize.toString(); // Convert gridSize to string
       if (!checksByGridSize[key]) {
         checksByGridSize[key] = [];
       }
       checksByGridSize[key].push(check);
     });
-
+  
     // Sort checks in each group by price
     Object.values(checksByGridSize).forEach(group => {
       group.sort((a, b) => a.floorAskPrice - b.floorAskPrice);
     });
-
-    // Dynamic programming to find optimal combination
+  
     for (let i = 1; i <= 64; i++) {
-      for (const size of ['Editions', ...gridSizes]) {
-        if (i >= 80 / (size === 'Editions' ? 80 : size) && checksByGridSize[size] && checksByGridSize[size].length > 0) {
+      for (const size of ['Editions', ...gridSizes.map(String)]) { // Convert gridSizes to strings
+        const numericSize = size === 'Editions' ? 80 : parseInt(size);
+        if (i >= 80 / numericSize && checksByGridSize[size] && checksByGridSize[size].length > 0) {
           const check = checksByGridSize[size][0]; // Get the cheapest check of this size
-          const newCost = dp[i - Math.floor(80 / (size === 'Editions' ? 80 : size))] + check.floorAskPrice;
+          const newCost = dp[i - Math.floor(80 / numericSize)] + check.floorAskPrice;
           if (newCost < dp[i]) {
             dp[i] = newCost;
-            combination[i] = [...combination[i - Math.floor(80 / (size === 'Editions' ? 80 : size))], check];
+            combination[i] = [...combination[i - Math.floor(80 / numericSize)], check];
             // Remove the used check from the available checks
             checksByGridSize[size] = checksByGridSize[size].slice(1);
           }
