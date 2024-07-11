@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import dynamic from 'next/dynamic'
+import { Analytics } from "@vercel/analytics/react"
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import CheapestCheck from '@/components/cheapestCheck';
 import SweepCalculator from '@/components/SweepCalculator';
 import OptimalCheckCalculator from '@/components/OptimalCheckCalculator';
+
 
 const ClientOnlyCheck = dynamic(() => import('../components/svg/index'), {
   ssr: false,
@@ -14,6 +17,7 @@ const ClientOnlyCheck = dynamic(() => import('../components/svg/index'), {
 export default function Home() {
   return (
     <main>
+      <Analytics />
       <div className="py-16 px-16 w-screen bg-white">
         <div className="py-4 flex-col justify-start items-start gap-2 inline-flex">
           <div className="flex-row justify-start items-center gap-2 inline-flex">
