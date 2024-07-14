@@ -16,33 +16,33 @@ interface CheckToken {
   contractAddress: string;
 }
 interface CacheData {
-    data: any;
+    data: CheckToken[];
     timestamp: number;
-  }
+}
   
-  async function getCachedData(): Promise<CacheData | null> {
-    const cacheData = await kv.get<CacheData>(CACHE_KEY);
+async function getCachedData(key: string): Promise<CacheData | null> {
+    const cacheData = await kv.get<CacheData>(key);
     if (cacheData && Date.now() - cacheData.timestamp < CACHE_DURATION) {
       return cacheData;
     }
     return null;
-  }
+}
   
-  async function setCachedData(data: any): Promise<void> {
+async function setCachedData(key: string, data: CheckToken[]): Promise<void> {
     const cacheData: CacheData = {
       data,
       timestamp: Date.now(),
     };
-    await kv.set(CACHE_KEY, cacheData);
-  }
+    await kv.set(key, cacheData);
+}
   
 async function fetchChecks(contractAddress: string): Promise<CheckToken[]> {
     const cacheKey = `checks_${contractAddress}`;
-    const cachedData = getCachedData(cacheKey);
+    const cachedData = await getCachedData(cacheKey);
     if (cachedData) {
       console.log(`Using cached data for ${contractAddress}`);
-      return cachedData;
-    }
+      return cachedData.data;
+    }  
 
     let allTokens: CheckToken[] = [];
     let continuation: string | null = null;
@@ -91,7 +91,7 @@ async function fetchChecks(contractAddress: string): Promise<CheckToken[]> {
       }
     } while (continuation && allTokens.length < 1000); // Fetch up to 1000 tokens or until no more continuation
   
-    setCachedData(cacheKey, allTokens);
+    await setCachedData(cacheKey, allTokens);
     return allTokens;
 }
 
@@ -180,9 +180,10 @@ export async function GET(req: NextRequest) {
       console.log('API Route called');
       const start = Date.now();
   
-      const cachedResult = await getCachedData();
+      const cacheKey = 'optimize_checks_result';
+      const cachedResult = await getCachedData(cacheKey);
       if (cachedResult) {
-        console.log('Using cached data');
+        console.log('Using cached optimal combination');
         const timeSinceLastCache = Date.now() - cachedResult.timestamp;
         return NextResponse.json({
           ...cachedResult.data,
@@ -208,7 +209,7 @@ export async function GET(req: NextRequest) {
       console.log('Calculation complete');
       
       if (result) {
-        await setCachedData(result);
+        await setCachedData(cacheKey, result);
         
         const end = Date.now();
         return NextResponse.json({
@@ -234,4 +235,16 @@ export async function GET(req: NextRequest) {
         apiDuration: Date.now() - start,
       }, { status: 500 });
     }
-}
+  }
+
+
+
+
+
+
+
+
+
+
+
+
