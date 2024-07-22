@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <ClientOnlyCheck />
-            <span className="text-gray-600 font-medium">Check, don't trust</span>
+            <span className="text-gray-600 font-medium">Check, don&apos;t trust</span>
           </div>
           <Link 
             href="https://twitter.com/0xharsheth" 
