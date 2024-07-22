@@ -1,4 +1,3 @@
-// components/Header.tsx
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
@@ -6,7 +5,11 @@ const ClientOnlyCheck = dynamic(() => import('./svg/index'), {
   ssr: false,
 });
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onRefresh: () => Promise<void>;
+}
+
+const Header: React.FC<HeaderProps> = ({ onRefresh }) => {
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,20 +32,13 @@ const Header: React.FC = () => {
     fetchLastUpdateTime();
   }, []);
 
-  const fetchData = async () => {
+  const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      // Replace this with your actual API call
-      const response = await fetch('/api/optimizeChecks');
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-      await response.json();
-      
-      // After successful fetch, update the last fetch time
+      await onRefresh();
       await fetchLastUpdateTime();
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error refreshing data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +72,7 @@ const Header: React.FC = () => {
         <p className="text-sm text-gray-600">Last data update:</p>
         <p className="text-md font-semibold">{getTimeSinceLastFetch()}</p>
         <button
-          onClick={fetchData}
+          onClick={handleRefresh}
           disabled={isLoading}
           className="px-3 py-1 text-sm text-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded transition-colors"
         >
