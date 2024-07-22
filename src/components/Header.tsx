@@ -4,9 +4,7 @@ const ClientOnlyCheck = dynamic(() => import('./svg/index'), {
   ssr: false,
 });
 
-interface HeaderProps {}
-
-const Header: React.FC<HeaderProps> = () => {
+const Header: React.FC = () => {
   return (
     <header className="w-full py-4 flex justify-between items-start">
       <div className="flex flex-col gap-2">

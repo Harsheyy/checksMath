@@ -23,43 +23,43 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [checksError, setChecksError] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    setChecksError(null);
-    try {
-      const response = await fetch('/api/optimizeChecks');
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-      const data: ApiData = await response.json();
-      setApiData(data);
-
-      // Fetch all checks
-      const checks = await fetchChecks();
-      if (checks.length === 0) {
-        console.warn('No checks were fetched');
-        setChecksError('No checks available. Please try again later.');
-      } else {
-        setAllChecks(checks);
-      }
-    } catch (err) {
-      console.error('Error in fetchData:', err);
-      if (err instanceof Error) {
-        if (err.message.includes('checks')) {
-          setChecksError(err.message);
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('An unknown error occurred');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      setChecksError(null);
+      try {
+        const response = await fetch('/api/optimizeChecks');
+        if (!response.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        const data: ApiData = await response.json();
+        setApiData(data);
+
+        // Fetch all checks
+        const checks = await fetchChecks();
+        if (checks.length === 0) {
+          console.warn('No checks were fetched');
+          setChecksError('No checks available. Please try again later.');
+        } else {
+          setAllChecks(checks);
+        }
+      } catch (err) {
+        console.error('Error in fetchData:', err);
+        if (err instanceof Error) {
+          if (err.message.includes('checks')) {
+            setChecksError(err.message);
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError('An unknown error occurred');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchData();
   }, []);
 
@@ -67,7 +67,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-white">
       <Analytics />
       <div className="pt-4 pb-w px-8 border-b">
-        <Header onRefresh={fetchData} />
+        <Header />
       </div>
       <main className="flex-grow flex flex-col justify-center px-8 py-8 border-t bg-gray-100">
         <div className="w-full max-w-l mx-auto">
