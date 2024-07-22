@@ -10,8 +10,8 @@ import { kv } from '@vercel/kv';
 const RESERVOIR_API_KEY = process.env.RESERVOIR_API_KEY;
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
-let inMemoryCache: CheckToken[] | null = null;
-let lastCacheTime: number = 0;
+const CACHE_KEY = 'checks_cache';
+const CACHE_TIMESTAMP_KEY = 'checks_cache_timestamp';
 const CACHE_DURATION = 60 * 60; // 1 hour in seconds
 
 // Interface representing a Check token
@@ -83,16 +83,26 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
  * @returns An array of CheckToken objects.
  */
 export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promise<CheckToken[]> {
-  const currentTime = Date.now();
+  const currentTime = Math.floor(Date.now() / 1000); // Convert to seconds
   
-  if (!forceRefresh && inMemoryCache && (currentTime - lastCacheTime < CACHE_DURATION)) {
-    return inMemoryCache;
+  if (!forceRefresh) {
+    // Try to get the cache timestamp from KV store
+    const lastCacheTime = await kv.get<number>(CACHE_TIMESTAMP_KEY);
+    
+    if (lastCacheTime && (currentTime - lastCacheTime < CACHE_DURATION)) {
+      // If the cache is still valid, return the cached data
+      const cachedChecks = await kv.get<CheckToken[]>(CACHE_KEY);
+      if (cachedChecks) {
+        return cachedChecks;
+      }
+    }
   }
 
   try {
     let allChecks: CheckToken[] = [];
     const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
+    // Fetch Checks tokens
     for (const size of gridSizes) {
       try {
         const tokens = await fetchTokens(CHECKS_CONTRACT_ADDRESS, { 'Checks': size.toString() });
@@ -112,6 +122,7 @@ export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promis
       }
     }
 
+    // Fetch Editions tokens
     try {
       const editionsTokens = await fetchTokens(EDITIONS_CONTRACT_ADDRESS);
       const filteredEditions = editionsTokens.filter((token: any) => token.market?.floorAsk?.price?.amount?.native);
@@ -132,8 +143,9 @@ export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promis
     if (allChecks.length === 0) {
       console.warn('No checks were processed. This might indicate an issue with the data or filtering.');
     } else {
-      inMemoryCache = allChecks;
-      lastCacheTime = currentTime;
+      // Update the KV store with the new data and timestamp
+      await kv.set(CACHE_KEY, allChecks);
+      await kv.set(CACHE_TIMESTAMP_KEY, currentTime);
     }
 
     return allChecks;
