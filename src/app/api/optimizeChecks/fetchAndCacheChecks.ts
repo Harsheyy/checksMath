@@ -1,38 +1,58 @@
+/**
+ * This module handles fetching and caching of Check tokens from the Reservoir API.
+ * It provides functionality to retrieve Check tokens of various grid sizes and Editions,
+ * and caches the results for improved performance.
+ */
+
 import { kv } from '@vercel/kv';
 
+// API and contract constants
 const RESERVOIR_API_KEY = process.env.RESERVOIR_API_KEY;
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
-const CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+let inMemoryCache: CheckToken[] | null = null;
+let lastCacheTime: number = 0;
+const CACHE_DURATION = 60 * 60; // 1 hour in seconds
 
+// Interface representing a Check token
 export interface CheckToken {
   tokenId: string;
   name: string;
   gridSize: number;
   floorAskPrice: number;
   contractAddress: string;
+  image: string;
 }
 
-interface CacheData {
-  data: CheckToken[];
-  timestamp: number;
-}
-
-async function fetchChecksFromAPI(contractAddress: string): Promise<CheckToken[]> {
-  let allTokens: CheckToken[] = [];
+/**
+ * Fetches tokens from the Reservoir API for a given contract address and attributes.
+ * 
+ * @param contractAddress - The address of the contract to fetch tokens for.
+ * @param attributes - Optional attributes to filter the tokens.
+ * @returns An array of token data from the API.
+ */
+async function fetchTokens(contractAddress: string, attributes?: Record<string, string>): Promise<any[]> {
+  let allTokens: any[] = [];
   let continuation: string | null = null;
+  const batchSize = 100;
 
   do {
     const tokensUrl = `https://api.reservoir.tools/tokens/v6`;
     const params = new URLSearchParams({
       collection: contractAddress,
-      limit: '100',
+      limit: batchSize.toString(),
       sortBy: 'floorAskPrice',
       sortDirection: 'asc',
     });
 
     if (continuation) {
       params.append('continuation', continuation);
+    }
+
+    if (attributes) {
+      for (const [key, value] of Object.entries(attributes)) {
+        params.append(`attributes[${key}]`, value);
+      }
     }
 
     const response = await fetch(`${tokensUrl}?${params}`, {
@@ -46,17 +66,7 @@ async function fetchChecksFromAPI(contractAddress: string): Promise<CheckToken[]
     const data = await response.json();
 
     if (data.tokens && Array.isArray(data.tokens)) {
-      const batchTokens = data.tokens
-        .filter((token: any) => token.market?.floorAsk?.price?.amount?.native)
-        .map((token: any) => ({
-          tokenId: token.token?.tokenId || 'Unknown',
-          name: token.token?.name || 'Unnamed',
-          gridSize: contractAddress === CHECKS_CONTRACT_ADDRESS ? (parseInt(token.token?.name.split(' ')[0]) || 80) : 80,
-          floorAskPrice: token.market.floorAsk.price.amount.native,
-          contractAddress: contractAddress,
-        }));
-
-      allTokens = [...allTokens, ...batchTokens];
+      allTokens = [...allTokens, ...data.tokens];
       continuation = data.continuation;
     } else {
       break;
@@ -66,25 +76,69 @@ async function fetchChecksFromAPI(contractAddress: string): Promise<CheckToken[]
   return allTokens;
 }
 
-export async function fetchAndCacheChecks(): Promise<CheckToken[]> {
-  const cacheKey = 'all_checks_data';
-  const cachedData = await kv.get<CacheData>(cacheKey);
-
-  if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-    console.log('Using cached check data');
-    return cachedData.data;
+/**
+ * Fetches and caches Check tokens and Editions.
+ * 
+ * @param forceRefresh - If true, bypasses the cache and fetches fresh data.
+ * @returns An array of CheckToken objects.
+ */
+export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promise<CheckToken[]> {
+  const currentTime = Date.now();
+  
+  if (!forceRefresh && inMemoryCache && (currentTime - lastCacheTime < CACHE_DURATION)) {
+    return inMemoryCache;
   }
 
-  console.log('Fetching fresh check data');
-  const checksTokens = await fetchChecksFromAPI(CHECKS_CONTRACT_ADDRESS);
-  const editionsTokens = await fetchChecksFromAPI(EDITIONS_CONTRACT_ADDRESS);
-  const allTokens = [...checksTokens, ...editionsTokens];
+  try {
+    let allChecks: CheckToken[] = [];
+    const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
-  const cacheData: CacheData = {
-    data: allTokens,
-    timestamp: Date.now(),
-  };
+    for (const size of gridSizes) {
+      try {
+        const tokens = await fetchTokens(CHECKS_CONTRACT_ADDRESS, { 'Checks': size.toString() });
+        const filteredTokens = tokens.filter((token: any) => token.market?.floorAsk?.price?.amount?.native);
+        
+        const processedTokens = filteredTokens.map((token: any) => ({
+          tokenId: token.token?.tokenId || 'Unknown',
+          name: token.token?.name || 'Unnamed',
+          gridSize: size,
+          floorAskPrice: token.market.floorAsk.price.amount.native,
+          contractAddress: CHECKS_CONTRACT_ADDRESS,
+          image: token.token?.image || '',
+        }));
+        allChecks = [...allChecks, ...processedTokens];
+      } catch (error) {
+        console.error(`Error fetching ${size} checks:`, error);
+      }
+    }
 
-  await kv.set(cacheKey, cacheData);
-  return allTokens;
+    try {
+      const editionsTokens = await fetchTokens(EDITIONS_CONTRACT_ADDRESS);
+      const filteredEditions = editionsTokens.filter((token: any) => token.market?.floorAsk?.price?.amount?.native);
+      
+      const processedEditions = filteredEditions.map((token: any) => ({
+        tokenId: token.token?.tokenId || 'Unknown',
+        name: token.token?.name || 'Unnamed',
+        gridSize: 80, // Editions are always 80
+        floorAskPrice: token.market.floorAsk.price.amount.native,
+        contractAddress: EDITIONS_CONTRACT_ADDRESS,
+        image: token.token?.image || '',
+      }));
+      allChecks = [...allChecks, ...processedEditions];
+    } catch (error) {
+      console.error('Error fetching Editions tokens:', error);
+    }
+
+    if (allChecks.length === 0) {
+      console.warn('No checks were processed. This might indicate an issue with the data or filtering.');
+    } else {
+      inMemoryCache = allChecks;
+      lastCacheTime = currentTime;
+    }
+
+    return allChecks;
+  } catch (error) {
+    console.error('Error in fetchAndCacheChecks:', error);
+    throw error;
+  }
 }
