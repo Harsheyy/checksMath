@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
             rel="noopener noreferrer"
             className="text-blue-500 hover:text-blue-600 transition-colors duration-200"
           >
-            Twitter
+            Made by @0xHarsh
           </Link>
         </div>
       </div>
