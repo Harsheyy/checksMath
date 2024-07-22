@@ -1,18 +1,9 @@
-/**
- * This module handles fetching and caching of Check tokens from the Reservoir API.
- * It provides functionality to retrieve Check tokens of various grid sizes and Editions,
- * and caches the results for improved performance.
- */
-
-import { kv } from '@vercel/kv';
+import { NextRequest, NextResponse } from 'next/server';
 
 // API and contract constants
 const RESERVOIR_API_KEY = process.env.RESERVOIR_API_KEY;
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
-const CACHE_KEY = 'checks_cache';
-const CACHE_TIMESTAMP_KEY = 'checks_cache_timestamp';
-const CACHE_DURATION = 60 * 60; // 1 hour in seconds
 
 // Interface representing a Check token
 export interface CheckToken {
@@ -77,27 +68,11 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
 }
 
 /**
- * Fetches and caches Check tokens and Editions.
+ * Fetches Check tokens and Editions.
  * 
- * @param forceRefresh - If true, bypasses the cache and fetches fresh data.
  * @returns An array of CheckToken objects.
  */
-export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promise<CheckToken[]> {
-  const currentTime = Math.floor(Date.now() / 1000); // Convert to seconds
-  
-  if (!forceRefresh) {
-    // Try to get the cache timestamp from KV store
-    const lastCacheTime = await kv.get<number>(CACHE_TIMESTAMP_KEY);
-    
-    if (lastCacheTime && (currentTime - lastCacheTime < CACHE_DURATION)) {
-      // If the cache is still valid, return the cached data
-      const cachedChecks = await kv.get<CheckToken[]>(CACHE_KEY);
-      if (cachedChecks) {
-        return cachedChecks;
-      }
-    }
-  }
-
+export async function fetchChecks(): Promise<CheckToken[]> {
   try {
     let allChecks: CheckToken[] = [];
     const gridSizes = [1, 4, 5, 10, 20, 40, 80];
@@ -107,7 +82,7 @@ export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promis
       try {
         const tokens = await fetchTokens(CHECKS_CONTRACT_ADDRESS, { 'Checks': size.toString() });
         const filteredTokens = tokens.filter((token: any) => token.market?.floorAsk?.price?.amount?.native);
-        
+
         const processedTokens = filteredTokens.map((token: any) => ({
           tokenId: token.token?.tokenId || 'Unknown',
           name: token.token?.name || 'Unnamed',
@@ -126,7 +101,7 @@ export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promis
     try {
       const editionsTokens = await fetchTokens(EDITIONS_CONTRACT_ADDRESS);
       const filteredEditions = editionsTokens.filter((token: any) => token.market?.floorAsk?.price?.amount?.native);
-      
+
       const processedEditions = filteredEditions.map((token: any) => ({
         tokenId: token.token?.tokenId || 'Unknown',
         name: token.token?.name || 'Unnamed',
@@ -142,15 +117,11 @@ export async function fetchAndCacheChecks(forceRefresh: boolean = false): Promis
 
     if (allChecks.length === 0) {
       console.warn('No checks were processed. This might indicate an issue with the data or filtering.');
-    } else {
-      // Update the KV store with the new data and timestamp
-      await kv.set(CACHE_KEY, allChecks);
-      await kv.set(CACHE_TIMESTAMP_KEY, currentTime);
     }
 
     return allChecks;
   } catch (error) {
-    console.error('Error in fetchAndCacheChecks:', error);
+    console.error('Error in fetchChecks:', error);
     throw error;
   }
 }

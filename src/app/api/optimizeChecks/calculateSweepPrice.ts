@@ -1,4 +1,4 @@
-import { CheckToken } from './fetchAndCacheChecks';
+import { CheckToken } from './fetchChecks';
 
 export interface SweepPriceResult {
   editionsSweepPrice: number;

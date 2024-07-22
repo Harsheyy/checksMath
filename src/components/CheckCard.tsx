@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import { CheckToken } from '@/app/api/optimizeChecks/fetchAndCacheChecks'; // Adjust the import path as necessary
+import { CheckToken } from '@/app/api/optimizeChecks/fetchChecks'; // Adjust the import path as necessary
 
 interface CheckCardProps {
   check: CheckToken;
@@ -32,7 +32,6 @@ interface CheckListProps {
   }
   
   const CheckList: React.FC<CheckListProps> = ({ checks }) => {
-    console.log('CheckList received', checks.length, 'checks');
     
     if (!checks || checks.length === 0) {
       return <p>No checks available. Total checks: {checks.length}</p>;
@@ -42,8 +41,6 @@ interface CheckListProps {
       acc[check.gridSize] = (acc[check.gridSize] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
-  
-    console.log('Checks by grid size:', checksByGridSize);
   
     return (
       <div className="bg-gray-100 p-6 rounded-lg">

@@ -1,4 +1,4 @@
-import { CheckToken } from './fetchAndCacheChecks';
+import { CheckToken } from './fetchChecks';
 
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 

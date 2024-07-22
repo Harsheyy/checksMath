@@ -8,7 +8,7 @@ import SweepCalculator from '@/components/SweepCalculator';
 import OptimalCheckCalculator from '@/components/OptimalCheckCalculator';
 import Footer from '@/components/footer';
 
-import { CheckToken, fetchAndCacheChecks } from '@/app/api/optimizeChecks/fetchAndCacheChecks';
+import { CheckToken, fetchChecks } from '@/app/api/optimizeChecks/fetchChecks';
 
 interface ApiData {
   sweepPrices: any; // Replace 'any' with the correct type
@@ -36,7 +36,7 @@ export default function Home() {
       setApiData(data);
 
       // Fetch all checks
-      const checks = await fetchAndCacheChecks();
+      const checks = await fetchChecks();
       if (checks.length === 0) {
         console.warn('No checks were fetched');
         setChecksError('No checks available. Please try again later.');

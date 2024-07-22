@@ -1,16 +1,9 @@
-/**
- * This module handles the API route for fetching and processing Check token data.
- * It provides endpoints for retrieving optimal combinations, sweep prices, and the cheapest single check.
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
-import { fetchAndCacheChecks, CheckToken } from './fetchAndCacheChecks';
+import { fetchChecks, CheckToken } from './fetchChecks';
 import { calculateOptimalCombination } from './calculateOptimalCombination';
 import { calculateSweepPrice } from './calculateSweepPrice';
 
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
-const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
 
 /**
  * Handles GET requests to the API endpoint.
@@ -22,10 +15,10 @@ export async function GET(req: NextRequest) {
   try {
     const start = Date.now();
 
-    // Fetch and cache checks
+    // Fetch checks
     let allChecks: CheckToken[];
     try {
-      allChecks = await fetchAndCacheChecks(true); // Force refresh
+      allChecks = await fetchChecks();
     } catch (fetchError) {
       console.error('Error fetching checks:', fetchError);
       return NextResponse.json({ 
@@ -38,13 +31,6 @@ export async function GET(req: NextRequest) {
     const optimalCombination = calculateOptimalCombination(allChecks);
     const sweepPrices = calculateSweepPrice(allChecks);
     const cheapestSingleCheck = calculateCheapestSingleCheck(allChecks);
-
-    // Update last update time in KV store
-    try {
-      await kv.set('last_update_time', Date.now());
-    } catch (kvError) {
-      console.error('Failed to update last_update_time in KV store:', kvError);
-    }
 
     const end = Date.now();
 
