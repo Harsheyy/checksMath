@@ -8,57 +8,37 @@ import SweepCalculator from '@/components/SweepCalculator';
 import OptimalCheckCalculator from '@/components/OptimalCheckCalculator';
 import Footer from '@/components/footer';
 
-import { CheckToken, fetchChecks } from '@/app/api/optimizeChecks/fetchChecks';
+import { CheckToken } from '@/app/api/optimizeChecks/fetchChecks';
 
 interface ApiData {
-  sweepPrices: any; // Replace 'any' with the correct type
-  cheapestSingleCheck: any; // Replace 'any' with the correct type
+  optimalCombination: any;
+  sweepPrices: any;
+  cheapestSingleCheck: any;
   apiDuration: number;
 }
 
 export default function Home() {
   const [apiData, setApiData] = useState<ApiData | null>(null);
-  const [allChecks, setAllChecks] = useState<CheckToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [checksError, setChecksError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      setChecksError(null);
+    async function fetchData() {
       try {
+        setLoading(true);
         const response = await fetch('/api/optimizeChecks');
         if (!response.ok) {
-          throw new Error('Failed to fetch data');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data: ApiData = await response.json();
+        const data = await response.json();
         setApiData(data);
-
-        // Fetch all checks
-        const checks = await fetchChecks();
-        if (checks.length === 0) {
-          console.warn('No checks were fetched');
-          setChecksError('No checks available. Please try again later.');
-        } else {
-          setAllChecks(checks);
-        }
-      } catch (err) {
-        console.error('Error in fetchData:', err);
-        if (err instanceof Error) {
-          if (err.message.includes('checks')) {
-            setChecksError(err.message);
-          } else {
-            setError(err.message);
-          }
-        } else {
-          setError('An unknown error occurred');
-        }
+      } catch (e) {
+        console.error('Error fetching data:', e);
+        setError(e instanceof Error ? e.message : 'An unknown error occurred');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchData();
   }, []);
@@ -81,7 +61,7 @@ export default function Home() {
             <div className="py-4 flex flex-col gap-4">
               <CheapestCheck data={apiData.cheapestSingleCheck} />
               <SweepCalculator data={apiData.sweepPrices} />
-              <OptimalCheckCalculator />
+              <OptimalCheckCalculator checks={apiData.optimalCombination} />
             </div>
           ) : null}
         </div>
