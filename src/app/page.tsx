@@ -6,7 +6,6 @@ import Header from '@/components/Header';
 import CheapestCheck from '@/components/cheapestCheck';
 import SweepCalculator from '@/components/SweepCalculator';
 import OptimalCheckCalculator from '@/components/OptimalCheckCalculator';
-import { CheckList } from '@/components/checkCard';
 import Footer from '@/components/footer';
 
 import { CheckToken, fetchAndCacheChecks } from '@/app/api/optimizeChecks/fetchAndCacheChecks';
@@ -84,11 +83,6 @@ export default function Home() {
               <CheapestCheck data={apiData.cheapestSingleCheck} />
               <SweepCalculator data={apiData.sweepPrices} />
               <OptimalCheckCalculator data={apiData.optimalCombination} />
-              {/* {checksError ? (
-                <p className="text-center text-red-500">Error fetching checks: {checksError}</p>
-              ) : (
-                <CheckList checks={allChecks} />
-              )} */}
             </div>
           ) : null}
         </div>
