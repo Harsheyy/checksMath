@@ -11,9 +11,8 @@ import Footer from '@/components/footer';
 import { CheckToken, fetchAndCacheChecks } from '@/app/api/optimizeChecks/fetchAndCacheChecks';
 
 interface ApiData {
-  optimalCombination: any;
-  sweepPrices: any;
-  cheapestSingleCheck: any;
+  sweepPrices: any; // Replace 'any' with the correct type
+  cheapestSingleCheck: any; // Replace 'any' with the correct type
   apiDuration: number;
 }
 
@@ -33,7 +32,7 @@ export default function Home() {
       if (!response.ok) {
         throw new Error('Failed to fetch data');
       }
-      const data = await response.json();
+      const data: ApiData = await response.json();
       setApiData(data);
 
       // Fetch all checks
@@ -82,7 +81,7 @@ export default function Home() {
             <div className="py-4 flex flex-col gap-4">
               <CheapestCheck data={apiData.cheapestSingleCheck} />
               <SweepCalculator data={apiData.sweepPrices} />
-              <OptimalCheckCalculator data={apiData.optimalCombination} />
+              <OptimalCheckCalculator />
             </div>
           ) : null}
         </div>
