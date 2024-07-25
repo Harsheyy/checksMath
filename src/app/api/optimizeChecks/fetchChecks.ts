@@ -6,6 +6,7 @@ const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
 
 const CACHE_KEY = 'checks_data';
 const CACHE_DURATION = 60 * 15; // 15 minutes in seconds
+const CACHE_REFRESH_THRESHOLD = 60 * 5; // 5 minutes in seconds
 
 export interface CheckToken {
   tokenId: string;
@@ -14,6 +15,11 @@ export interface CheckToken {
   floorAskPrice: number;
   contractAddress: string;
   image: string;
+}
+
+interface CachedData {
+  checks: CheckToken[];
+  timestamp: number;
 }
 
 async function fetchTokens(contractAddress: string, attributes?: Record<string, string>): Promise<any[]> {
@@ -43,11 +49,12 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
   return data.tokens || [];
 }
 
-async function getCachedChecks(): Promise<CheckToken[] | null> {
+async function getCachedChecks(): Promise<CachedData | null> {
   try {
-    const cachedChecks = await kv.get<CheckToken[]>(CACHE_KEY);
-    if (cachedChecks) {
-      return cachedChecks;
+    const cachedData = await kv.get<CachedData>(CACHE_KEY);
+    if (cachedData) {
+      console.log('Retrieved checks from cache');
+      return cachedData;
     }
   } catch (error) {
     console.error('Error accessing cache:', error);
@@ -57,7 +64,12 @@ async function getCachedChecks(): Promise<CheckToken[] | null> {
 
 async function setCachedChecks(checks: CheckToken[]): Promise<void> {
   try {
-    await kv.set(CACHE_KEY, checks, { ex: CACHE_DURATION });
+    const cachedData: CachedData = {
+      checks,
+      timestamp: Date.now(),
+    };
+    await kv.set(CACHE_KEY, cachedData, { ex: CACHE_DURATION });
+    console.log('Stored checks in cache');
   } catch (error) {
     console.error('Error storing in cache:', error);
   }
@@ -65,55 +77,54 @@ async function setCachedChecks(checks: CheckToken[]): Promise<void> {
 
 export async function fetchChecks(): Promise<CheckToken[]> {
   try {
-    // Try to get cached data
-    const cachedChecks = await getCachedChecks();
-    if (cachedChecks) {
-      return cachedChecks;
+    const cachedData = await getCachedChecks();
+    const now = Date.now();
+
+    if (cachedData && (now - cachedData.timestamp) / 1000 < CACHE_REFRESH_THRESHOLD) {
+      console.log('Using cached data');
+      return cachedData.checks;
     }
-  } catch (cacheError) {
-    console.error('Cache error, falling back to API:', cacheError);
-  }
 
-  // If cache fails or no cached data, fetch from API
-  let allChecks: CheckToken[] = [];
-  const gridSizes = [1, 4, 5, 10, 20, 40, 80];
+    console.log('Fetching fresh check data from API');
+    let allChecks: CheckToken[] = [];
+    const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
-  // Fetch Checks tokens
-  for (const size of gridSizes) {
-    const tokens = await fetchTokens(CHECKS_CONTRACT_ADDRESS, { 'Checks': size.toString() });
-    const processedTokens = tokens
+    // Fetch Checks tokens
+    for (const size of gridSizes) {
+      const tokens = await fetchTokens(CHECKS_CONTRACT_ADDRESS, { 'Checks': size.toString() });
+      const processedTokens = tokens
+        .filter((token: any) => token.market?.floorAsk?.price?.amount?.native)
+        .map((token: any) => ({
+          tokenId: token.token?.tokenId || 'Unknown',
+          name: token.token?.name || 'Unnamed',
+          gridSize: size,
+          floorAskPrice: token.market.floorAsk.price.amount.native,
+          contractAddress: CHECKS_CONTRACT_ADDRESS,
+          image: token.token?.image || '',
+        }));
+      allChecks = [...allChecks, ...processedTokens];
+    }
+
+    // Fetch Editions tokens
+    const editionsTokens = await fetchTokens(EDITIONS_CONTRACT_ADDRESS);
+    const processedEditions = editionsTokens
       .filter((token: any) => token.market?.floorAsk?.price?.amount?.native)
       .map((token: any) => ({
         tokenId: token.token?.tokenId || 'Unknown',
         name: token.token?.name || 'Unnamed',
-        gridSize: size,
+        gridSize: 80,
         floorAskPrice: token.market.floorAsk.price.amount.native,
-        contractAddress: CHECKS_CONTRACT_ADDRESS,
+        contractAddress: EDITIONS_CONTRACT_ADDRESS,
         image: token.token?.image || '',
       }));
-    allChecks = [...allChecks, ...processedTokens];
-  }
+    allChecks = [...allChecks, ...processedEditions];
 
-  // Fetch Editions tokens
-  const editionsTokens = await fetchTokens(EDITIONS_CONTRACT_ADDRESS);
-  const processedEditions = editionsTokens
-    .filter((token: any) => token.market?.floorAsk?.price?.amount?.native)
-    .map((token: any) => ({
-      tokenId: token.token?.tokenId || 'Unknown',
-      name: token.token?.name || 'Unnamed',
-      gridSize: 80,
-      floorAskPrice: token.market.floorAsk.price.amount.native,
-      contractAddress: EDITIONS_CONTRACT_ADDRESS,
-      image: token.token?.image || '',
-    }));
-  allChecks = [...allChecks, ...processedEditions];
-
-  // Try to cache the new data, but don't throw if it fails
-  try {
+    // Cache the new data
     await setCachedChecks(allChecks);
-  } catch (cacheError) {
-    console.error('Failed to cache data:', cacheError);
-  }
 
-  return allChecks;
+    return allChecks;
+  } catch (error) {
+    console.error('Error in fetchChecks:', error);
+    throw error;
+  }
 }
