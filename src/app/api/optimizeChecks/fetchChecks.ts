@@ -6,7 +6,7 @@ const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
 
 const CACHE_KEY = 'checks_data';
 const CACHE_DURATION = 60 * 15; // 15 minutes in seconds
-const CACHE_REFRESH_THRESHOLD = 60 * 5; // 5 minutes in seconds
+const CACHE_REFRESH_THRESHOLD = 60 * 1; // 1 minute in seconds
 
 export interface CheckToken {
   tokenId: string;
@@ -37,6 +37,8 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
     }
   }
 
+  console.log(`Fetching tokens from URL: ${tokensUrl}?${params}`);
+  
   const response = await fetch(`${tokensUrl}?${params}`, {
     headers: { 'x-api-key': RESERVOIR_API_KEY || '' }
   });
@@ -53,8 +55,10 @@ async function getCachedChecks(): Promise<CachedData | null> {
   try {
     const cachedData = await kv.get<CachedData>(CACHE_KEY);
     if (cachedData) {
-      console.log('Retrieved checks from cache');
+      console.log(`Retrieved checks from cache at timestamp: ${cachedData.timestamp}`);
       return cachedData;
+    } else {
+      console.log('No cached data found');
     }
   } catch (error) {
     console.error('Error accessing cache:', error);
@@ -69,7 +73,7 @@ async function setCachedChecks(checks: CheckToken[]): Promise<void> {
       timestamp: Date.now(),
     };
     await kv.set(CACHE_KEY, cachedData, { ex: CACHE_DURATION });
-    console.log('Stored checks in cache');
+    console.log(`Stored checks in cache with timestamp: ${cachedData.timestamp}`);
   } catch (error) {
     console.error('Error storing in cache:', error);
   }
@@ -77,8 +81,14 @@ async function setCachedChecks(checks: CheckToken[]): Promise<void> {
 
 export async function fetchChecks(): Promise<CheckToken[]> {
   try {
+    console.log('Attempting to fetch checks');
+    
     const cachedData = await getCachedChecks();
     const now = Date.now();
+
+    if (cachedData) {
+      console.log(`Current timestamp: ${now}, Cached timestamp: ${cachedData.timestamp}, Time difference: ${(now - cachedData.timestamp) / 1000} seconds`);
+    }
 
     if (cachedData && (now - cachedData.timestamp) / 1000 < CACHE_REFRESH_THRESHOLD) {
       console.log('Using cached data');
