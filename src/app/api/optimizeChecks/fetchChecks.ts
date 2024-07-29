@@ -36,8 +36,6 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
       params.append(`attributes[${key}]`, value);
     }
   }
-
-  console.log(`Fetching tokens from URL: ${tokensUrl}?${params}`);
   
   const response = await fetch(`${tokensUrl}?${params}`, {
     headers: { 'x-api-key': RESERVOIR_API_KEY || '' }
@@ -55,10 +53,8 @@ async function getCachedChecks(): Promise<CachedData | null> {
   try {
     const cachedData = await kv.get<CachedData>(CACHE_KEY);
     if (cachedData) {
-      console.log(`Retrieved checks from cache at timestamp: ${cachedData.timestamp}`);
       return cachedData;
     } else {
-      console.log('No cached data found');
     }
   } catch (error) {
     console.error('Error accessing cache:', error);
@@ -73,7 +69,6 @@ async function setCachedChecks(checks: CheckToken[]): Promise<void> {
       timestamp: Date.now(),
     };
     await kv.set(CACHE_KEY, cachedData, { ex: CACHE_DURATION });
-    console.log(`Stored checks in cache with timestamp: ${cachedData.timestamp}`);
   } catch (error) {
     console.error('Error storing in cache:', error);
   }
@@ -81,21 +76,13 @@ async function setCachedChecks(checks: CheckToken[]): Promise<void> {
 
 export async function fetchChecks(): Promise<CheckToken[]> {
   try {
-    console.log('Attempting to fetch checks');
-    
     const cachedData = await getCachedChecks();
     const now = Date.now();
 
-    if (cachedData) {
-      console.log(`Current timestamp: ${now}, Cached timestamp: ${cachedData.timestamp}, Time difference: ${(now - cachedData.timestamp) / 1000} seconds`);
-    }
-
     if (cachedData && (now - cachedData.timestamp) / 1000 < CACHE_REFRESH_THRESHOLD) {
-      console.log('Using cached data');
       return cachedData.checks;
     }
 
-    console.log('Fetching fresh check data from API');
     let allChecks: CheckToken[] = [];
     const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
