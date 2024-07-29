@@ -1,12 +1,6 @@
-import { kv } from '@vercel/kv';
-
 const RESERVOIR_API_KEY = process.env.RESERVOIR_API_KEY;
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 const EDITIONS_CONTRACT_ADDRESS = '0x34eebee6942d8def3c125458d1a86e0a897fd6f9';
-
-const CACHE_KEY = 'checks_data';
-const CACHE_DURATION = 60 * 15; // 15 minutes in seconds
-const CACHE_REFRESH_THRESHOLD = 60 * 1; // 1 minute in seconds
 
 export interface CheckToken {
   tokenId: string;
@@ -15,11 +9,6 @@ export interface CheckToken {
   floorAskPrice: number;
   contractAddress: string;
   image: string;
-}
-
-interface CachedData {
-  checks: CheckToken[];
-  timestamp: number;
 }
 
 async function fetchTokens(contractAddress: string, attributes?: Record<string, string>): Promise<any[]> {
@@ -49,40 +38,8 @@ async function fetchTokens(contractAddress: string, attributes?: Record<string, 
   return data.tokens || [];
 }
 
-async function getCachedChecks(): Promise<CachedData | null> {
-  try {
-    const cachedData = await kv.get<CachedData>(CACHE_KEY);
-    if (cachedData) {
-      return cachedData;
-    } else {
-    }
-  } catch (error) {
-    console.error('Error accessing cache:', error);
-  }
-  return null;
-}
-
-async function setCachedChecks(checks: CheckToken[]): Promise<void> {
-  try {
-    const cachedData: CachedData = {
-      checks,
-      timestamp: Date.now(),
-    };
-    await kv.set(CACHE_KEY, cachedData, { ex: CACHE_DURATION });
-  } catch (error) {
-    console.error('Error storing in cache:', error);
-  }
-}
-
 export async function fetchChecks(): Promise<CheckToken[]> {
   try {
-    const cachedData = await getCachedChecks();
-    const now = Date.now();
-
-    if (cachedData && (now - cachedData.timestamp) / 1000 < CACHE_REFRESH_THRESHOLD) {
-      return cachedData.checks;
-    }
-
     let allChecks: CheckToken[] = [];
     const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
@@ -115,9 +72,6 @@ export async function fetchChecks(): Promise<CheckToken[]> {
         image: token.token?.image || '',
       }));
     allChecks = [...allChecks, ...processedEditions];
-
-    // Cache the new data
-    await setCachedChecks(allChecks);
 
     return allChecks;
   } catch (error) {
