@@ -5,21 +5,21 @@ import { calculateSweepPrice } from './calculateSweepPrice';
 
 const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
 
+export const runtime = 'edge';
+
 export async function GET(req: NextRequest) {
   try {
-    const start = Date.now();
+    const timestamp = Date.now();
+    const start = performance.now();
 
     const allChecks = await fetchChecks();
     const optimalCombination = calculateOptimalCombination(allChecks);
     const sweepPrices = calculateSweepPrice(allChecks);
     const cheapestSingleCheck = calculateCheapestSingleCheck(allChecks);
 
-    const end = Date.now();
+    const end = performance.now();
     const apiDuration = end - start;
 
-    console.log(`API request completed in ${apiDuration}ms`);
-
-    // Prepare response
     const response = {
       optimalCombination,
       sweepPrices,
@@ -32,15 +32,30 @@ export async function GET(req: NextRequest) {
         gridSize: cheapestSingleCheck.gridSize,
       } : null,
       apiDuration,
+      timestamp,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      },
+    });
   } catch (error) {
     console.error('Error in API route:', error);
     return NextResponse.json({ 
       error: 'An error occurred while processing checks',
       message: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      },
+    });
   }
 }
 
