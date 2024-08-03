@@ -1,16 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { fetchChecks, CheckToken } from './fetchChecks';
+import { NextResponse } from 'next/server';
+import { fetchChecks } from './fetchChecks';
 import { calculateOptimalCombination } from './calculateOptimalCombination';
 import { calculateSweepPrice } from './calculateSweepPrice';
 import { calculateCheapestSingleCheck } from './calculateCheapestSingleCheck';
 
-const CHECKS_CONTRACT_ADDRESS = '0x036721e5a769cc48b3189efbb9cce4471e8a48b1';
-
 export const runtime = 'edge';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const timestamp = Date.now();
     const start = performance.now();
 
     const allChecks = await fetchChecks();
@@ -21,7 +18,7 @@ export async function GET(req: NextRequest) {
     const end = performance.now();
     const apiDuration = end - start;
 
-    const response = {
+    return NextResponse.json({
       optimalCombination,
       sweepPrices,
       cheapestSingleCheck: cheapestSingleCheck ? {
@@ -33,15 +30,10 @@ export async function GET(req: NextRequest) {
         gridSize: cheapestSingleCheck.gridSize,
       } : null,
       apiDuration,
-      timestamp,
-    };
-
-    return NextResponse.json(response, {
+    }, {
       status: 200,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
-        'CDN-Cache-Control': 'no-store',
-        'Vercel-CDN-Cache-Control': 'no-store',
       },
     });
   } catch (error) {
@@ -53,8 +45,6 @@ export async function GET(req: NextRequest) {
       status: 500,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
-        'CDN-Cache-Control': 'no-store',
-        'Vercel-CDN-Cache-Control': 'no-store',
       },
     });
   }
