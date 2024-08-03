@@ -2,20 +2,25 @@ import { CheckToken } from './fetchChecks';
 
 export interface OptimizationResult {
   totalCost: number;
-  combination: { gridSize: number; count: number; isEdition: boolean }[];
+  combination: { 
+    gridSize: number | 'Editions'; 
+    count: number; 
+    isEdition: boolean;
+    cheapestCheck: CheckToken | null;
+  }[];
   groupedChecks: { [key: string]: CheckToken[] };
 }
 
 export function calculateOptimalCombination(checks: CheckToken[]): OptimizationResult {
-  const gridSizes = [80, 40, 20, 10, 5, 4, 2, 1];
+  const gridSizes = [80, 40, 20, 10, 5, 4, 1];
   const dp: number[] = new Array(65).fill(Infinity);
   dp[0] = 0;
   const combination: { [key: number]: CheckToken[] } = { 0: [] };
 
-  // Group checks by grid size
+  // Group checks by grid size, treating Editions as 80 grid size
   const checksByGridSize: { [key: string]: CheckToken[] } = {};
   checks.forEach(check => {
-    const key = check.contractAddress === '0x34eebee6942d8def3c125458d1a86e0a897fd6f9' ? 'Editions' : check.gridSize.toString();
+    const key = check.gridSize.toString();
     if (!checksByGridSize[key]) {
       checksByGridSize[key] = [];
     }
@@ -28,15 +33,14 @@ export function calculateOptimalCombination(checks: CheckToken[]): OptimizationR
   });
 
   for (let i = 1; i <= 64; i++) {
-    for (const size of ['Editions', ...gridSizes.map(String)]) {
-      const numericSize = size === 'Editions' ? 80 : parseInt(size);
-      if (i >= 80 / numericSize && checksByGridSize[size] && checksByGridSize[size].length > 0) {
-        const check = checksByGridSize[size][0];
-        const newCost = dp[i - Math.floor(80 / numericSize)] + check.floorAskPrice;
+    for (const size of gridSizes) {
+      if (i >= 80 / size && checksByGridSize[size.toString()] && checksByGridSize[size.toString()].length > 0) {
+        const check = checksByGridSize[size.toString()][0];
+        const newCost = dp[i - Math.floor(80 / size)] + check.floorAskPrice;
         if (newCost < dp[i]) {
           dp[i] = newCost;
-          combination[i] = [...combination[i - Math.floor(80 / numericSize)], check];
-          checksByGridSize[size] = checksByGridSize[size].slice(1);
+          combination[i] = [...combination[i - Math.floor(80 / size)], check];
+          checksByGridSize[size.toString()] = checksByGridSize[size.toString()].slice(1);
         }
       }
     }
@@ -47,11 +51,15 @@ export function calculateOptimalCombination(checks: CheckToken[]): OptimizationR
 
   return {
     totalCost: dp[64],
-    combination: Object.entries(groupedOptimal).map(([tier, checks]) => ({
-      gridSize: tier === 'Editions' ? 80 : parseInt(tier),
-      count: checks.length,
-      isEdition: tier === 'Editions'
-    })).filter(item => item.count > 0),
+    combination: Object.entries(groupedOptimal).map(([tier, checks]) => {
+      const isEdition = tier === 'Editions';
+      return {
+        gridSize: isEdition ? 'Editions' : parseInt(tier),
+        count: checks.length,
+        isEdition: isEdition,
+        cheapestCheck: checks.length > 0 ? checks[0] : null
+      };
+    }).filter(item => item.count > 0),
     groupedChecks: groupedOptimal
   };
 }
@@ -59,25 +67,29 @@ export function calculateOptimalCombination(checks: CheckToken[]): OptimizationR
 function groupChecksByTier(checks: CheckToken[]) {
   const grouped: { [key: string]: CheckToken[] } = {
     'Editions': [],
-    '80 grid': [],
-    '40 grid': [],
-    '20 grid': [],
-    '10 grid': [],
-    '5 grid': [],
-    '4 grid': [],
-    '2 grid': [],
-    '1 grid': [],
+    '80': [],
+    '40': [],
+    '20': [],
+    '10': [],
+    '5': [],
+    '4': [],
+    '1': [],
   };
 
   checks.forEach(check => {
     if (check.contractAddress === '0x34eebee6942d8def3c125458d1a86e0a897fd6f9') {
       grouped['Editions'].push(check);
     } else {
-      const key = `${check.gridSize} grid`;
+      const key = check.gridSize.toString();
       if (grouped[key]) {
         grouped[key].push(check);
       }
     }
+  });
+
+  // Sort each group by price
+  Object.values(grouped).forEach(group => {
+    group.sort((a, b) => a.floorAskPrice - b.floorAskPrice);
   });
 
   return grouped;
