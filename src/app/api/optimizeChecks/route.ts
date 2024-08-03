@@ -30,10 +30,11 @@ export async function GET() {
         gridSize: cheapestSingleCheck.gridSize,
       } : null,
       apiDuration,
+      cacheTimestamp: new Date().toISOString(),
     }, {
       status: 200,
       headers: {
-        'Cache-Control': 'no-store, max-age=0',
+        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=59',
       },
     });
   } catch (error) {

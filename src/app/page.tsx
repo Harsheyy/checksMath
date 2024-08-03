@@ -14,6 +14,7 @@ interface ApiData {
   sweepPrices: any;
   cheapestSingleCheck: any;
   apiDuration: number;
+  cacheTimestamp: string;
 }
 
 export default function Home() {
@@ -48,7 +49,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-white">
       <Analytics />
       <div className="pt-4 pb-w px-8 border-b">
-        <Header />
+        <Header cacheTimestamp={apiData?.cacheTimestamp || null} />
       </div>
       <main className="flex-grow flex flex-col justify-center px-8 py-8 border-t bg-gray-100">
         <div className="w-full max-w-l mx-auto">
