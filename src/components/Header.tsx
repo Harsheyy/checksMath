@@ -17,7 +17,7 @@ const Header: React.FC<HeaderProps> = ({ cacheTimestamp }) => {
   };
 
   return (
-    <header className="w-full py-4 flex justify-between items-start">
+    <header className="w-full py-4 flex flex-col sm:flex-row justify-between items-start">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <ClientOnlyCheck />
