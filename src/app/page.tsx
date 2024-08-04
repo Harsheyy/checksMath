@@ -22,27 +22,33 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchData = async (forceRefresh: boolean = false) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const response = await fetch('/api/optimizeChecks');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setApiData(data);
-        setLoading(false);
-      } catch (e) {
-        console.error('Error fetching data:', e);
-        setError('Failed to fetch data. Please try again later.');
-        setLoading(false);
+      const response = await fetch(`/api/optimizeChecks${forceRefresh ? '?forceRefresh=true' : ''}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
+      const data = await response.json();
+      setApiData(data);
+      setLoading(false);
+    } catch (e) {
+      console.error('Error fetching data:', e);
+      setError('Failed to fetch data. Please try again later.');
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
+
+    const intervalId = setInterval(() => {
+      fetchData(true);
+    }, 15 * 60 * 1000); // Force refresh every 15 minutes
+
+    return () => clearInterval(intervalId);
   }, []);
 
   return (

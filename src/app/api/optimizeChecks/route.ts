@@ -6,7 +6,22 @@ import { calculateCheapestSingleCheck } from './calculateCheapestSingleCheck';
 
 export const runtime = 'edge';
 
-export async function GET() {
+let cachedData: any = null;
+let lastUpdateTime: number = 0;
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+
+export async function GET(request: Request) {
+  const currentTime = Date.now();
+  const urlObj = new URL(request.url);
+  const forceRefresh = urlObj.searchParams.get('forceRefresh') === 'true';
+
+  if (cachedData && !forceRefresh && currentTime - lastUpdateTime < CACHE_DURATION) {
+    return NextResponse.json({
+      ...cachedData,
+      cacheTimestamp: new Date(lastUpdateTime).toISOString(),
+    });
+  }
+
   try {
     const start = performance.now();
 
@@ -18,7 +33,7 @@ export async function GET() {
     const end = performance.now();
     const apiDuration = end - start;
 
-    return NextResponse.json({
+    cachedData = {
       optimalCombination,
       sweepPrices,
       cheapestSingleCheck: cheapestSingleCheck ? {
@@ -30,11 +45,16 @@ export async function GET() {
         gridSize: cheapestSingleCheck.gridSize,
       } : null,
       apiDuration,
-      cacheTimestamp: new Date().toISOString(),
+    };
+
+    lastUpdateTime = currentTime;
+
+    return NextResponse.json({
+      ...cachedData,
+      cacheTimestamp: new Date(lastUpdateTime).toISOString(),
     }, {
-      status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=59',
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (error) {
