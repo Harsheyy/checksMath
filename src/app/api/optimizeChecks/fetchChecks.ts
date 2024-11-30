@@ -12,34 +12,64 @@ export interface CheckToken {
 }
 
 async function fetchTokens(contractAddress: string, attributes?: Record<string, string>): Promise<any[]> {
-  const tokensUrl = `https://api.reservoir.tools/tokens/v6`;
-  const params = new URLSearchParams({
-    collection: contractAddress,
-    limit: '100',
-    sortBy: 'floorAskPrice',
-    sortDirection: 'asc',
-  });
+  if (!RESERVOIR_API_KEY) {
+    throw new Error('RESERVOIR_API_KEY is not configured');
+  }
 
-  if (attributes) {
-    for (const [key, value] of Object.entries(attributes)) {
-      params.append(`attributes[${key}]`, value);
+  const tokensUrl = `https://api.reservoir.tools/tokens/v6`;
+  
+  // Add retry logic with exponential backoff
+  const maxRetries = 3;
+  let retryCount = 0;
+  
+  while (retryCount < maxRetries) {
+    try {
+      const params = new URLSearchParams({
+        collection: contractAddress,
+        limit: '100',
+        sortBy: 'floorAskPrice',
+        sortDirection: 'asc',
+      });
+
+      if (attributes) {
+        for (const [key, value] of Object.entries(attributes)) {
+          params.append(`attributes[${key}]`, value);
+        }
+      }
+
+      const response = await fetch(`${tokensUrl}?${params}`, {
+        headers: { 'x-api-key': RESERVOIR_API_KEY || '' }
+      });
+
+      if (response.status === 429) {
+        retryCount++;
+        // Wait for 2^retryCount seconds before retrying
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.tokens || [];
+    } catch (error) {
+      if (retryCount === maxRetries - 1) throw error;
+      retryCount++;
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
     }
   }
   
-  const response = await fetch(`${tokensUrl}?${params}`, {
-    headers: { 'x-api-key': RESERVOIR_API_KEY || '' }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.tokens || [];
+  throw new Error('Max retries exceeded');
 }
 
 export async function fetchChecks(): Promise<CheckToken[]> {
   try {
+    if (!RESERVOIR_API_KEY) {
+      throw new Error('RESERVOIR_API_KEY is not configured');
+    }
+
     let allChecks: CheckToken[] = [];
     const gridSizes = [1, 4, 5, 10, 20, 40, 80];
 
@@ -76,6 +106,6 @@ export async function fetchChecks(): Promise<CheckToken[]> {
     return allChecks;
   } catch (error) {
     console.error('Error in fetchChecks:', error);
-    throw error;
+    throw new Error(`Failed to fetch checks: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

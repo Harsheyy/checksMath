@@ -26,7 +26,8 @@ const OptimalCheckCalculator: React.FC<OptimalCheckCalculatorProps> = ({ optimal
 
   return (
     <div className="bg-white shadow-md rounded-lg p-6 w-full mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Optimal Check Combination</h2>
+      <h2 className="text-2xl font-bold">Optimal Check Combination</h2>
+      <p className="text-gray-600 mb-4">Optimal combination of checks to sweep to create a single check</p>
       <div className="border p-4 rounded-lg">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
           <div className="flex flex-wrap justify-start md:space-x-8">

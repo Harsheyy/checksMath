@@ -17,7 +17,8 @@ interface SweepCalculatorProps {
 const SweepCalculator: React.FC<SweepCalculatorProps> = ({ data }) => {
   return (
     <div className="bg-white shadow-md rounded-lg p-6 w-full">
-      <h2 className="text-2xl font-bold mb-6 text-left">Sweep Calculator</h2>
+      <h2 className="text-2xl font-bold text-left">Sweep Calculator</h2>
+      <p className="text-gray-600 mb-4">Cost of sweeping 64 editions and check orginals</p>
       <div className="flex flex-col md:flex-row gap-6">
         <SweepSection 
           title="Editions" 
